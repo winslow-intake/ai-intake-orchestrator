@@ -106,7 +106,7 @@ wss.on('connection', (ws) => {
                         const payload = {
                             audio: {
                                 mime_type: 'audio/mulaw;rate=8000',
-                                data: msg.media.payload
+                                data: Buffer.from(msg.media.payload, 'base64').toString('base64')
                             }
                         };
                         console.log('🟢 Payload to ElevenLabs:', JSON.stringify(payload).slice(0, 150) + '...');
