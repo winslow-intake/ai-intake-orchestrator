@@ -101,10 +101,13 @@ wss.on('connection', (ws) => {
                     break;
 
                 case 'media':
-                    // Forward audio to ElevenLabs
                     if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+                        console.log('➡️ Sending audio chunk to ElevenLabs');
                         elevenLabsWs.send(JSON.stringify({
-                            user_audio_chunk: Buffer.from(msg.media.payload, 'base64').toString('base64')
+                            audio: {
+                                mime_type: 'audio/mulaw;rate=8000',
+                                data: msg.media.payload
+                            }
                         }));
                     }
                     break;
