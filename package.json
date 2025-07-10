@@ -1,0 +1,29 @@
+{
+  "name": "ai-intake-orchestrator",
+  "version": "1.0.0",
+  "description": "Node.js app that orchestrates AI voice intake calls using Twilio, ElevenLabs, and external services like Airtable and n8n",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/winslow-intake/ai-intake-orchestrator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/winslow-intake/ai-intake-orchestrator/issues"
+  },
+  "homepage": "https://github.com/winslow-intake/ai-intake-orchestrator#readme",
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "axios": "^1.10.0",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "twilio": "^5.7.2"
+  }
+}
