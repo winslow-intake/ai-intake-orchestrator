@@ -52,18 +52,16 @@ wss.on('connection', (ws) => {
                             'xi-api-key': process.env.ELEVENLABS_API_KEY
                         }
                     });
+elevenLabsWs.on('open', () => {
+    console.log('🎙️ Connected to ElevenLabs - using default agent settings');
 
-                    elevenLabsWs.on('open', () => {
-                        console.log('🎙️ Connected to ElevenLabs');
-
-                        // Send initial prompt to open the session
-                        elevenLabsWs.send(JSON.stringify({
-                            text: "Hello, thank you for calling. How can I help you?",
-                            voice: {
-                                voice_id: process.env.ELEVENLABS_VOICE_ID
-                            }
-                        }));
-                    });
+    // ✅ REQUIRED SESSION INIT WITH CORRECT FORMAT
+    elevenLabsWs.send(JSON.stringify({
+        type: 'start_session',
+        audio_format: 'mulaw',
+        sample_rate: 8000
+    }));
+});
 
                     elevenLabsWs.on('message', (data) => {
                         try {
@@ -98,19 +96,17 @@ wss.on('connection', (ws) => {
                     });
                     break;
 
-                case 'media':
-                    console.log('📦 Received media event from Twilio');
-                    if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
-                        elevenLabsWs.send(JSON.stringify({
-                            audio: {
-                                mime_type: 'audio/mulaw;rate=8000',
-                                data: msg.media.payload
-                            }
-                        }));
-                    } else {
-                        console.log('❌ ElevenLabs WebSocket not open — skipping audio send');
-                    }
-                    break;
+case 'media':
+    console.log('📦 Received media event from Twilio');
+    if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+        elevenLabsWs.send(JSON.stringify({
+            type: 'audio_chunk',
+            data: msg.media.payload
+        }));
+    } else {
+        console.log('❌ ElevenLabs WebSocket not open — skipping audio send');
+    }
+    break;
 
                 case 'stop':
                     console.log('🛑 Stream stopped');
