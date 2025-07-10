@@ -44,7 +44,6 @@ wss.on('connection', (ws) => {
                     streamSid = msg.start.streamSid;
                     console.log(`🚀 Stream started: ${streamSid}`);
 
-                    // Connect directly to ElevenLabs (no signed URL needed)
                     const websocketUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${process.env.ELEVENLABS_AGENT_ID}`;
                     console.log('🔗 Connecting to ElevenLabs...');
 
@@ -55,13 +54,14 @@ wss.on('connection', (ws) => {
                     });
 
                     elevenLabsWs.on('open', () => {
-                        console.log('🎙️ Connected to ElevenLabs - using default agent settings');
+                        console.log('🎙️ Connected to ElevenLabs');
 
-                        // 🔑 REQUIRED SESSION INIT
+                        // Send initial prompt to open the session
                         elevenLabsWs.send(JSON.stringify({
-                            type: 'start_session',
-                            audio_format: 'pcm_mulaw',
-                            sample_rate: 8000
+                            text: "Hello, thank you for calling. How can I help you?",
+                            voice: {
+                                voice_id: process.env.ELEVENLABS_VOICE_ID
+                            }
                         }));
                     });
 
@@ -71,7 +71,6 @@ wss.on('connection', (ws) => {
                             console.log('📨 ElevenLabs message:', response.type);
 
                             if (response.type === 'audio' && response.audio_event) {
-                                // Forward audio back to Twilio
                                 ws.send(JSON.stringify({
                                     event: 'media',
                                     streamSid: streamSid,
@@ -80,7 +79,6 @@ wss.on('connection', (ws) => {
                             }
 
                             if (response.type === 'interruption') {
-                                // Clear Twilio audio buffer
                                 ws.send(JSON.stringify({
                                     event: 'clear',
                                     streamSid: streamSid
@@ -103,18 +101,17 @@ wss.on('connection', (ws) => {
                 case 'media':
                     console.log('📦 Received media event from Twilio');
                     if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
-                        const payload = {
+                        elevenLabsWs.send(JSON.stringify({
                             audio: {
                                 mime_type: 'audio/mulaw;rate=8000',
-                                data: Buffer.from(msg.media.payload, 'base64').toString('base64')
+                                data: msg.media.payload
                             }
-                        };
-                        console.log('🟢 Payload to ElevenLabs:', JSON.stringify(payload).slice(0, 150) + '...');
-                        elevenLabsWs.send(JSON.stringify(payload));
+                        }));
                     } else {
                         console.log('❌ ElevenLabs WebSocket not open — skipping audio send');
                     }
                     break;
+
                 case 'stop':
                     console.log('🛑 Stream stopped');
                     if (elevenLabsWs) {
