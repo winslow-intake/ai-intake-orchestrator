@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const WebSocket = require('ws');
 const http = require('http');
 require('dotenv').config();
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,68 +40,57 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(message);
       
       switch (msg.event) {
-        case 'start':
+   case 'start':
           streamSid = msg.start.streamSid;
           console.log(`🚀 Stream started: ${streamSid}`);
           
-          // Get signed URL from ElevenLabs first
-          try {
-            const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${process.env.ELEVENLABS_AGENT_ID}`, {
-              headers: {
-                'xi-api-key': process.env.ELEVENLABS_API_KEY
-              }
-            });
-            
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Connect directly to ElevenLabs (no signed URL needed)
+          const websocketUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${process.env.ELEVENLABS_AGENT_ID}`;
+          console.log('🔗 Connecting to ElevenLabs...');
+          
+          elevenLabsWs = new WebSocket(websocketUrl, {
+            headers: {
+              'xi-api-key': process.env.ELEVENLABS_API_KEY
             }
-            
-            const data = await response.json();
-            console.log('🔗 Got signed URL from ElevenLabs');
-            
-            // Connect using the signed URL
-            elevenLabsWs = new WebSocket(data.signed_url);
-            
-            elevenLabsWs.on('open', () => {
-              console.log('🎙️ Connected to ElevenLabs');
-            });
-            
-            elevenLabsWs.on('message', (data) => {
-              try {
-                const response = JSON.parse(data);
-                
-                if (response.type === 'audio' && response.audio_event) {
-                  // Forward audio back to Twilio
-                  ws.send(JSON.stringify({
-                    event: 'media',
-                    streamSid: streamSid,
-                    media: { payload: response.audio_event.audio_base_64 }
-                  }));
-                }
-                
-                if (response.type === 'interruption') {
-                  // Clear Twilio audio buffer
-                  ws.send(JSON.stringify({
-                    event: 'clear',
-                    streamSid: streamSid
-                  }));
-                }
-              } catch (error) {
-                console.error('❌ Error processing ElevenLabs message:', error);
+          });
+          
+          elevenLabsWs.on('open', () => {
+            console.log('🎙️ Connected to ElevenLabs');
+          });
+          
+          elevenLabsWs.on('message', (data) => {
+            try {
+              const response = JSON.parse(data);
+              console.log('📨 ElevenLabs message:', response.type);
+              
+              if (response.type === 'audio' && response.audio_event) {
+                // Forward audio back to Twilio
+                ws.send(JSON.stringify({
+                  event: 'media',
+                  streamSid: streamSid,
+                  media: { payload: response.audio_event.audio_base_64 }
+                }));
               }
-            });
-            
-            elevenLabsWs.on('close', () => {
-              console.log('🔌 ElevenLabs connection closed');
-            });
-            
-            elevenLabsWs.on('error', (error) => {
-              console.error('❌ ElevenLabs WebSocket error:', error);
-            });
-            
-          } catch (error) {
-            console.error('❌ Error getting signed URL:', error);
-          }
+              
+              if (response.type === 'interruption') {
+                // Clear Twilio audio buffer
+                ws.send(JSON.stringify({
+                  event: 'clear',
+                  streamSid: streamSid
+                }));
+              }
+            } catch (error) {
+              console.error('❌ Error processing ElevenLabs message:', error);
+            }
+          });
+          
+          elevenLabsWs.on('close', () => {
+            console.log('🔌 ElevenLabs connection closed');
+          });
+          
+          elevenLabsWs.on('error', (error) => {
+            console.error('❌ ElevenLabs WebSocket error:', error);
+          });
           break;
           
         case 'media':
