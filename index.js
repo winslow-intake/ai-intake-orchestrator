@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
 
 // WebSocket server for Twilio Media Streams
 const wss = new WebSocket.Server({ server, path: '/media-stream' });
-ß
+
 wss.on('connection', (ws) => {
     console.log('📞 New WebSocket connection from Twilio');
 
