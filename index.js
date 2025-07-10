@@ -26,117 +26,109 @@ app.get('/', (req, res) => {
 // WebSocket server for Twilio Media Streams
 const wss = new WebSocket.Server({ server, path: '/media-stream' });
 
+// ... [imports and setup unchanged] ...
+
 wss.on('connection', (ws) => {
-  console.log('📞 New WebSocket connection from Twilio');
+    console.log('📞 New WebSocket connection from Twilio');
 
-  let streamSid = null;
-  let elevenLabsWs = null;
-  let elevenLabsReady = false;
+    let streamSid = null;
+    let elevenLabsWs = null;
+    let elevenLabsReady = false;
+    const mediaBuffer = [];
 
-  ws.on('message', async (message) => {
-    try {
-      const msg = JSON.parse(message);
+    ws.on('message', async (message) => {
+        try {
+            const msg = JSON.parse(message);
 
-      switch (msg.event) {
-        case 'start':
-          streamSid = msg.start.streamSid;
-          console.log(`🚀 Stream started: ${streamSid}`);
+            switch (msg.event) {
+                case 'start':
+                    streamSid = msg.start.streamSid;
+                    console.log(`🚀 Stream started: ${streamSid}`);
 
-          // Connect to ElevenLabs
-          const websocketUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${process.env.ELEVENLABS_AGENT_ID}`;
-          console.log('🔗 Connecting to ElevenLabs...');
+                    const websocketUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${process.env.ELEVENLABS_AGENT_ID}`;
+                    elevenLabsWs = new WebSocket(websocketUrl, {
+                        headers: {
+                            'xi-api-key': process.env.ELEVENLABS_API_KEY
+                        }
+                    });
 
-          elevenLabsWs = new WebSocket(websocketUrl, {
-            headers: {
-              'xi-api-key': process.env.ELEVENLABS_API_KEY
+                    elevenLabsWs.on('open', () => {
+                        console.log('🎙️ Connected to ElevenLabs');
+                        elevenLabsWs.send(JSON.stringify({
+                            type: 'start_session',
+                            audio_format: 'pcm_mulaw',
+                            sample_rate: 8000
+                        }));
+                    });
+
+                    elevenLabsWs.on('message', (data) => {
+                        try {
+                            const response = JSON.parse(data);
+                            if (response.type === 'session_started') {
+                                elevenLabsReady = true;
+                                console.log('✅ ElevenLabs session started — flushing buffer');
+                                mediaBuffer.forEach((payload) => elevenLabsWs.send(JSON.stringify(payload)));
+                                mediaBuffer.length = 0;
+                            }
+
+                            if (response.type === 'audio' && response.audio_event) {
+                                ws.send(JSON.stringify({
+                                    event: 'media',
+                                    streamSid: streamSid,
+                                    media: { payload: response.audio_event.audio_base_64 }
+                                }));
+                            }
+
+                            if (response.type === 'interruption') {
+                                ws.send(JSON.stringify({
+                                    event: 'clear',
+                                    streamSid: streamSid
+                                }));
+                            }
+                        } catch (err) {
+                            console.error('❌ Error in ElevenLabs message:', err);
+                        }
+                    });
+
+                    elevenLabsWs.on('close', () => console.log('🔌 ElevenLabs closed'));
+                    elevenLabsWs.on('error', (err) => console.error('❌ ElevenLabs error:', err));
+                    break;
+
+                case 'media':
+                    const payload = {
+                        audio: {
+                            mime_type: 'audio/mulaw;rate=8000',
+                            data: Buffer.from(msg.media.payload, 'base64').toString('base64')
+                        }
+                    };
+                    if (elevenLabsReady && elevenLabsWs?.readyState === WebSocket.OPEN) {
+                        elevenLabsWs.send(JSON.stringify(payload));
+                    } else {
+                        mediaBuffer.push(payload);
+                        console.log('⏳ ElevenLabs not ready yet. Buffering audio chunk.');
+                    }
+                    break;
+
+                case 'stop':
+                    console.log('🛑 Stream stopped');
+                    if (elevenLabsWs) elevenLabsWs.close();
+                    break;
+
+                default:
+                    console.log(`Unknown event: ${msg.event}`);
             }
-          });
+        } catch (err) {
+            console.error('❌ Error in WS message handler:', err);
+        }
+    });
 
-          elevenLabsWs.on('open', () => {
-            console.log('🎙️ Connected to ElevenLabs');
-            elevenLabsWs.send(JSON.stringify({
-              type: 'start_session',
-              audio_format: 'mulaw',
-              sample_rate: 8000
-            }));
-          });
+    ws.on('close', () => {
+        console.log('📴 Twilio WebSocket closed');
+        if (elevenLabsWs) elevenLabsWs.close();
+    });
 
-          elevenLabsWs.on('message', (data) => {
-            try {
-              const response = JSON.parse(data);
-              console.log('📨 ElevenLabs message:', response.type);
-
-              if (response.type === 'session_started') {
-                console.log('✅ ElevenLabs session started');
-                elevenLabsReady = true;
-              }
-
-              if (response.type === 'audio' && response.audio_event) {
-                ws.send(JSON.stringify({
-                  event: 'media',
-                  streamSid,
-                  media: { payload: response.audio_event.audio_base_64 }
-                }));
-              }
-
-              if (response.type === 'interruption') {
-                ws.send(JSON.stringify({ event: 'clear', streamSid }));
-              }
-            } catch (err) {
-              console.error('❌ Error parsing ElevenLabs message:', err);
-            }
-          });
-
-          elevenLabsWs.on('close', () => {
-            console.log('🔌 ElevenLabs connection closed');
-          });
-
-          elevenLabsWs.on('error', (err) => {
-            console.error('❌ ElevenLabs error:', err);
-          });
-
-          break;
-
-        case 'media':
-          if (!elevenLabsReady) {
-            console.log('⏳ ElevenLabs not ready yet. Dropping audio chunk.');
-            return;
-          }
-
-          if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
-            elevenLabsWs.send(JSON.stringify({
-              type: 'audio_chunk',
-              data: msg.media.payload
-            }));
-          } else {
-            console.log('❌ ElevenLabs WebSocket not open — skipping audio send');
-          }
-          break;
-
-        case 'stop':
-          console.log('🛑 Stream stopped');
-          if (elevenLabsWs) elevenLabsWs.close();
-          break;
-
-        default:
-          console.log(`⚠️ Unknown event: ${msg.event}`);
-      }
-    } catch (error) {
-      console.error('❌ Error processing Twilio message:', error);
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('📴 Twilio WebSocket closed');
-    if (elevenLabsWs) elevenLabsWs.close();
-  });
-
-  ws.on('error', (err) => {
-    console.error('❌ Twilio WebSocket error:', err);
-    if (elevenLabsWs) elevenLabsWs.close();
-  });
-});
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+    ws.on('error', (err) => {
+        console.error('❌ Twilio WS error:', err);
+        if (elevenLabsWs) elevenLabsWs.close();
+    });
 });
