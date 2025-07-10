@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
 
 // WebSocket server for Twilio Media Streams
 const wss = new WebSocket.Server({ server, path: '/media-stream' });
-
+ß
 wss.on('connection', (ws) => {
     console.log('📞 New WebSocket connection from Twilio');
 
@@ -55,23 +55,7 @@ wss.on('connection', (ws) => {
                     });
 
                     elevenLabsWs.on('open', () => {
-                        console.log('🎙️ Connected to ElevenLabs');
-
-                        // Send conversation initiation message
-                        const initMessage = {
-                            type: "conversation_initiation_client_data",
-                            conversation_config_override: {
-                                agent: {
-                                    prompt: {
-                                        prompt: "You are Marcus, a warm and empathetic AI voice assistant for Langston and Wells Personal Injury Law Firm."
-                                    },
-                                    first_message: "Hi, this is Marcus with Langston and Wells Personal Injury Law Firm. How can I help you today?"
-                                }
-                            }
-                        };
-
-                        elevenLabsWs.send(JSON.stringify(initMessage));
-                        console.log('📨 Sent initiation message to ElevenLabs');
+                        console.log('🎙️ Connected to ElevenLabs - using default agent settings');
                     });
 
                     elevenLabsWs.on('message', (data) => {
