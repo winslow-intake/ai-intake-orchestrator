@@ -102,7 +102,13 @@ wss.on('connection', (ws) => {
 
                 case 'media':
                     if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
-                        console.log('➡️ Sending audio chunk to ElevenLabs');
+                        console.log('🟢 Payload to ElevenLabs:', JSON.stringify({
+                            audio: {
+                                mime_type: 'audio/mulaw;rate=8000',
+                                data: msg.media.payload.slice(0, 32) + '...'
+                            }
+                        }));
+
                         elevenLabsWs.send(JSON.stringify({
                             audio: {
                                 mime_type: 'audio/mulaw;rate=8000',
@@ -111,7 +117,6 @@ wss.on('connection', (ws) => {
                         }));
                     }
                     break;
-
                 case 'stop':
                     console.log('🛑 Stream stopped');
                     if (elevenLabsWs) {
