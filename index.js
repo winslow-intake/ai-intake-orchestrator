@@ -1,4 +1,4 @@
-const express = require('express');
+cconst express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
 const http = require('http');
@@ -56,6 +56,13 @@ wss.on('connection', (ws) => {
 
                     elevenLabsWs.on('open', () => {
                         console.log('🎙️ Connected to ElevenLabs - using default agent settings');
+
+                        // 🔑 REQUIRED SESSION INIT
+                        elevenLabsWs.send(JSON.stringify({
+                            type: 'start_session',
+                            audio_format: 'pcm_mulaw',
+                            sample_rate: 8000
+                        }));
                     });
 
                     elevenLabsWs.on('message', (data) => {
