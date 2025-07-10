@@ -132,3 +132,8 @@ wss.on('connection', (ws) => {
         if (elevenLabsWs) elevenLabsWs.close();
     });
 });
+
+
+server.listen(PORT, () => {
+    console.log(`✅ Server listening on port ${PORT}`);
+});
