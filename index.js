@@ -101,20 +101,18 @@ wss.on('connection', (ws) => {
                     break;
 
                 case 'media':
+                    console.log('📦 Received media event from Twilio');
                     if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
-                        console.log('🟢 Payload to ElevenLabs:', JSON.stringify({
-                            audio: {
-                                mime_type: 'audio/mulaw;rate=8000',
-                                data: msg.media.payload.slice(0, 32) + '...'
-                            }
-                        }));
-
-                        elevenLabsWs.send(JSON.stringify({
+                        const payload = {
                             audio: {
                                 mime_type: 'audio/mulaw;rate=8000',
                                 data: msg.media.payload
                             }
-                        }));
+                        };
+                        console.log('🟢 Payload to ElevenLabs:', JSON.stringify(payload).slice(0, 150) + '...');
+                        elevenLabsWs.send(JSON.stringify(payload));
+                    } else {
+                        console.log('❌ ElevenLabs WebSocket not open — skipping audio send');
                     }
                     break;
                 case 'stop':
