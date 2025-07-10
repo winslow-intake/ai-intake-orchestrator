@@ -114,4 +114,29 @@ wss.on('connection', (ws) => {
           break;
 
         case 'stop':
-          console.log('🛑 Stream stop
+          console.log('🛑 Stream stopped');
+          if (elevenLabsWs) elevenLabsWs.close();
+          break;
+
+        default:
+          console.log(`⚠️ Unknown event: ${msg.event}`);
+      }
+    } catch (error) {
+      console.error('❌ Error processing Twilio message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('📴 Twilio WebSocket closed');
+    if (elevenLabsWs) elevenLabsWs.close();
+  });
+
+  ws.on('error', (err) => {
+    console.error('❌ Twilio WebSocket error:', err);
+    if (elevenLabsWs) elevenLabsWs.close();
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
