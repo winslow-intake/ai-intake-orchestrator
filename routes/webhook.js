@@ -83,7 +83,7 @@ async function saveToAirtable(record) {
       }
     };
 
-    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Leads`;
+const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_ID}`;
 
     const res = await axios.post(url, record, config);
     console.log('✅ Saved to Airtable:', res.data.id);
