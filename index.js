@@ -100,11 +100,26 @@ wss.on('connection', (ws) => {
         
         elevenLabsWs.on('open', () => {
           console.log('✅ Connected to ElevenLabs Conversational AI');
+          
+          // Send conversation initiation message
+          const initMessage = {
+            type: "conversation_initiation_client_data",
+            conversation_config_override: {},
+            custom_llm_extra_body: {}
+          };
+          
+          console.log('📤 Sending initiation message to ElevenLabs');
+          elevenLabsWs.send(JSON.stringify(initMessage));
         });
         
         elevenLabsWs.on('message', (elevenLabsMessage) => {
           try {
             const elevenLabsData = JSON.parse(elevenLabsMessage);
+            console.log('📥 ElevenLabs message:', elevenLabsData.type);
+            
+            if (elevenLabsData.type === 'conversation_initiation_metadata') {
+              console.log('🎬 Conversation initiated successfully');
+            }
             
             if (elevenLabsData.type === 'audio' && elevenLabsData.audio_event) {
               // Send audio back to Twilio
@@ -119,6 +134,11 @@ wss.on('connection', (ws) => {
               };
               
               ws.send(JSON.stringify(twilioMessage));
+              console.log('🔊 Forwarded audio to Twilio');
+            }
+            
+            if (elevenLabsData.type === 'agent_response') {
+              console.log('💬 Agent response:', elevenLabsData.agent_response_event?.agent_response);
             }
             
             if (elevenLabsData.type === 'conversation_end') {
@@ -153,10 +173,7 @@ wss.on('connection', (ws) => {
         // Forward audio from Twilio to ElevenLabs
         if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
           const audioMessage = {
-            type: 'audio',
-            audio_event: {
-              audio_base_64: data.media.payload
-            }
+            user_audio_chunk: data.media.payload
           };
           
           elevenLabsWs.send(JSON.stringify(audioMessage));
