@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import axios from 'axios';
 const router = express.Router();
-const axios = require('axios');
 
 // 🔥 Main ElevenLabs Webhook Handler
 router.post('/elevenlabs', async (req, res) => {
@@ -126,4 +126,4 @@ async function triggerN8nWorkflow(recordData) {
   }
 }
 
-module.exports = router;
+export default router;

@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import webhookRoutes from './routes/webhook.js';
 
 const app = express();
 const server = createServer(app);
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json({ limit: '10mb' })); // Increase limit for ElevenLabs webhooks
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/webhook', webhookRoutes);
 
 // Health check
 app.get('/', (req, res) => {
