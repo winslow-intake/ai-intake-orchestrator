@@ -1,66 +1,77 @@
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const axios = require('axios');
+import express from 'express';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
-const webhookRoutes = require('./routes/webhook');
-const inboundRoutes = require('./routes/inbound');
+dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, path: '/media' });
+const server = createServer(app);
+const wss = new WebSocketServer({ server, path: '/media' });
 
-// Middlewares
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.PUBLIC_HOST || 'localhost';
+
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/webhook', webhookRoutes);
-app.use('/inbound', inboundRoutes);
-
-app.get('/twiml', (req, res) => {
+app.post('/twiml', (req, res) => {
   res.type('text/xml');
   res.send(`
     <Response>
       <Connect>
-        <Stream url="wss://${process.env.DOMAIN}/media" />
+        <Stream url="wss://${HOST}/media" />
       </Connect>
     </Response>
   `);
 });
 
-// WebSocket: Handles incoming Twilio call audio, sends to ElevenLabs
-wss.on('connection', async (ws) => {
-  console.log('📞 Incoming WebSocket connection from Twilio');
+wss.on('connection', (ws) => {
+  console.log('🔗 WebSocket connected to Twilio media stream');
 
-  try {
-    const response = await axios.post(
-      `https://api.elevenlabs.io/v1/agents/${process.env.ELEVENLABS_AGENT_ID}/interactions`,
-      {
-        agent_id: process.env.ELEVENLABS_AGENT_ID,
-        text_input: 'Hi there! How can I help you today?'
-      },
-      {
+  let sessionId = null;
+
+  ws.on('message', async (data) => {
+    const msg = JSON.parse(data.toString());
+
+    if (msg.event === 'start') {
+      sessionId = msg.start.callSid;
+      console.log(`📞 Call started: ${sessionId}`);
+    }
+
+    if (msg.event === 'media' && msg.media?.payload) {
+      const audioBuffer = Buffer.from(msg.media.payload, 'base64');
+
+      const response = await fetch(`https://api.elevenlabs.io/v1/speech-to-text`, {
+        method: 'POST',
         headers: {
           'xi-api-key': process.env.ELEVENLABS_API_KEY,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          audio: audioBuffer.toString('base64'),
+          encoding: 'mulaw',
+          sample_rate: 8000,
+          agent_id: process.env.ELEVENLABS_AGENT_ID,
+        })
+      });
+
+      const result = await response.json();
+      if (result?.text) {
+        console.log(`🗣️ Transcription: ${result.text}`);
       }
-    );
+    }
 
-    const audio = Buffer.from(response.data.audio, 'base64');
-    ws.send(audio);
-    console.log('🎙️ AI response sent');
+    if (msg.event === 'stop') {
+      console.log(`⛔ Call ended: ${sessionId}`);
+    }
+  });
 
-  } catch (err) {
-    console.error('❌ ElevenLabs error:', err.response?.data || err.message);
-  }
-
-  ws.on('close', () => console.log('📴 Twilio WebSocket closed'));
+  ws.on('close', () => {
+    console.log(`❌ WebSocket disconnected`);
+  });
 });
 
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🟢 Server listening on port ${PORT}`);
+  console.log(`🚀 Server live at http://localhost:${PORT}`);
 });
