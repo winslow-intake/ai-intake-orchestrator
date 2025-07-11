@@ -232,6 +232,8 @@ async function saveToAirtable(data) {
       }
     };
 
+    console.log('🔍 Airtable API key check:', process.env.AIRTABLE_API_KEY);
+
     const response = await fetch(`https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Leads`, {
       method: 'POST',
       headers: {
