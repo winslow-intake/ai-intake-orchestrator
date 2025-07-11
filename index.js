@@ -1,8 +1,8 @@
-const express = require('express');
-const { WebSocketServer } = require('ws');
-const { createServer } = require('http');
-const dotenv = require('dotenv');
-const fetch = require('node-fetch');
+import express from 'express';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -11,8 +11,7 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/media' });
 
 const PORT = process.env.PORT || 3000;
-const HOST = 'ai-intake-orchestrator.onrender.com';
-
+const HOST = process.env.PUBLIC_HOST || 'localhost';
 
 app.use(express.urlencoded({ extended: true }));
 
