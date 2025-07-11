@@ -1,5 +1,4 @@
-console.log("DOMAIN ENV:", process.env.DOMAIN);
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Reserved for inbound API routes, e.g. Twilio status callbacks or Airtable lookups
@@ -8,4 +7,4 @@ router.post('/status', (req, res) => {
   res.sendStatus(200);
 });
 
-module.exports = router;
+export default router;
