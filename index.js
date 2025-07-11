@@ -1,8 +1,8 @@
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { WebSocketServer } = require('ws');
-const fetch = require('node-fetch');
+import 'dotenv/config';
+import express from 'express';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import fetch from 'node-fetch';
 
 const app = express();
 const server = createServer(app);
@@ -23,9 +23,9 @@ app.post('/twiml', (req, res) => {
   res.send(twiml);
 });
 
-// 👇 This WebSocket handles media stream (optional if using separate media server)
+// 👇 Optional: media stream WebSocket
 wss.on('connection', (ws) => {
-  console.log('🔗 WebSocket connected to Twilio media stream');
+  console.log('🔗 WebSocket connected');
 
   ws.on('message', async (message) => {
     console.log('📦 Received media chunk');
@@ -43,15 +43,13 @@ wss.on('connection', (ws) => {
       const result = await response.json();
       console.log('📝 Transcription:', result);
     } catch (err) {
-      console.error('❌ Error sending to ElevenLabs:', err);
+      console.error('❌ ElevenLabs error:', err);
     }
   });
 
-  ws.on('close', () => {
-    console.log('🔌 WebSocket disconnected');
-  });
+  ws.on('close', () => console.log('🔌 WebSocket disconnected'));
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server live at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
