@@ -42,32 +42,30 @@ async function processIntakeData(data) {
     // Extract values from ElevenLabs data collection results
     const analysisData = data.analysis || {};
     
-    const airtableRecord = {
-      fields: {
-        'First Name': analysisData['First Name']?.value || '',
-        'Last Name': analysisData['Last Name']?.value || '',
-        'Phone': analysisData['Phone']?.value || '',
-        'Email': analysisData['Email']?.value || '',
-        'Case Type': analysisData['Case Type']?.value || '',
-        'Case Description': analysisData['Case Description']?.value || '',
-        'Date of Incident': analysisData['Date of Incident']?.value || '',
-        'Consent to Contact': analysisData['Consent to Contact']?.value === 'yes',
-        'Conversation ID': data.conversation_id || '',
-        'Transcript Summary': data.transcript_summary || '',
-        'Source': 'Phone Call - AI Intake',
-        'Lead Status': 'New Lead',
-        'Lead Score': calculateLeadScore(analysisData),
-        'Created Date': new Date().toISOString()
-      }
+    const fields = {
+      'First Name': analysisData['First Name']?.value || '',
+      'Last Name': analysisData['Last Name']?.value || '',
+      'Phone': analysisData['Phone']?.value || '',
+      'Email': analysisData['Email']?.value || '',
+      'Case Type': analysisData['Case Type']?.value || '',
+      'Case Description': analysisData['Case Description']?.value || '',
+      'Date of Incident': analysisData['Date of Incident']?.value || '',
+      'Source': 'Phone Call - AI Intake',
+      'Lead Status': 'New Lead',
+      'Lead Score': calculateLeadScore(analysisData),
+      'Created Date': new Date().toISOString()
     };
+
+    // Only add checkbox if consent was given (true)
+    if (analysisData['Consent to Contact']?.value === 'yes' || analysisData['Consent to Contact']?.value === 'Yes') {
+      fields['Consent to Contact'] = true;
+    }
+
+    const airtableRecord = { fields };
 
     console.log('📊 Final Airtable record:', airtableRecord);
 
     await saveToAirtable(airtableRecord);
-
-    if (process.env.N8N_WEBHOOK_URL) {
-      await triggerN8nWorkflow(airtableRecord);
-    }
 
   } catch (error) {
     console.error('❌ Error in processIntakeData:', error);
@@ -90,7 +88,10 @@ async function saveToAirtable(record) {
     const res = await axios.post(url, record, config);
     console.log('✅ Saved to Airtable:', res.data.id);
   } catch (error) {
-    console.error('❌ Failed to save to Airtable:', error.response?.data || error.message);
+    console.error('❌ Failed to save to Airtable:');
+    console.error('Status:', error.response?.status);
+    console.error('Data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Headers:', error.response?.headers);
   }
 }
 
@@ -132,19 +133,6 @@ function calculateLeadScore(data) {
   }
   
   return Math.min(score, 100);
-}
-
-async function triggerN8nWorkflow(recordData) {
-  try {
-    await axios.post(process.env.N8N_WEBHOOK_URL, {
-      source: 'ai-intake-phone',
-      data: recordData,
-      timestamp: new Date().toISOString()
-    });
-    console.log('✅ Triggered n8n workflow');
-  } catch (error) {
-    console.error('❌ Failed to trigger n8n:', error.response?.data || error.message);
-  }
 }
 
 export default router;
