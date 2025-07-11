@@ -60,24 +60,43 @@ wss.on('connection', (ws) => {
           return;
         }
         
-        // Get signed URL for private agent
-        console.log('🔑 Getting signed URL from ElevenLabs...');
-        const signedUrlResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`, {
-          headers: {
-            'xi-api-key': apiKey
+        // Try direct connection first (for public agents)
+        console.log('🚀 Attempting direct connection to ElevenLabs...');
+        let elevenLabsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${agentId}`;
+        
+        elevenLabsWs = new WebSocket(elevenLabsUrl);
+        
+        elevenLabsWs.on('error', async (error) => {
+          console.log('❌ Direct connection failed, trying signed URL...');
+          
+          try {
+            // Get signed URL for private agent
+            console.log('🔑 Getting signed URL from ElevenLabs...');
+            const signedUrlResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`, {
+              headers: {
+                'xi-api-key': apiKey
+              }
+            });
+            
+            if (!signedUrlResponse.ok) {
+              console.error('❌ Failed to get signed URL:', signedUrlResponse.statusText);
+              return;
+            }
+            
+            const signedUrlData = await signedUrlResponse.json();
+            elevenLabsUrl = signedUrlData.signed_url;
+            
+            console.log('🚀 Connecting to ElevenLabs with signed URL...');
+            elevenLabsWs = new WebSocket(elevenLabsUrl);
+            
+            setupElevenLabsHandlers();
+            
+          } catch (signedUrlError) {
+            console.error('❌ Signed URL connection also failed:', signedUrlError);
           }
         });
         
-        if (!signedUrlResponse.ok) {
-          console.error('❌ Failed to get signed URL:', signedUrlResponse.statusText);
-          return;
-        }
-        
-        const signedUrlData = await signedUrlResponse.json();
-        const elevenLabsUrl = signedUrlData.signed_url;
-        
-        console.log('🚀 Connecting to ElevenLabs with signed URL...');
-        elevenLabsWs = new WebSocket(elevenLabsUrl);
+        function setupElevenLabsHandlers() {
         
         elevenLabsWs.on('open', () => {
           console.log('✅ Connected to ElevenLabs Conversational AI');
@@ -124,6 +143,10 @@ wss.on('connection', (ws) => {
         elevenLabsWs.on('error', (error) => {
           console.error('❌ ElevenLabs WebSocket error:', error);
         });
+        }
+        
+        // Set up handlers for direct connection
+        setupElevenLabsHandlers();
       }
       
       if (data.event === 'media') {
