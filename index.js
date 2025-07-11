@@ -23,25 +23,17 @@ app.get('/', (req, res) => {
   });
 });
 
-// 👇 Twilio webhook - this is what Twilio calls when someone dials your number
+// 👇 ElevenLabs conversation initiation webhook
 app.post('/voice', (req, res) => {
-  console.log('📞 Incoming call from Twilio:', req.body);
+  console.log('🔗 ElevenLabs conversation initiation:', req.body);
   
-  // Get the host from the request to build the correct WebSocket URL
-  const host = req.get('host');
-  const wsUrl = `wss://${host}/media`;
-  
-  const twiml = `
-    <Response>
-      <Say>Please hold while we connect you to our AI assistant.</Say>
-      <Connect>
-        <Stream url="${wsUrl}" />
-      </Connect>
-    </Response>
-  `;
-  
-  res.type('text/xml');
-  res.send(twiml);
+  // Return conversation initiation data
+  res.json({
+    conversation_initiation_client_data: {
+      dynamic_variables: {},
+      overrides: {}
+    }
+  });
 });
 
 // 👇 Twilio status callbacks
@@ -79,7 +71,7 @@ app.post('/webhook/elevenlabs', async (req, res) => {
   }
 });
 
-// 👇 WebSocket connection for media streaming
+// 👇 WebSocket connection for media streaming (legacy - not used with native ElevenLabs integration)
 wss.on('connection', (ws, req) => {
   console.log('🔗 WebSocket connected from:', req.socket.remoteAddress);
 
@@ -120,7 +112,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// 👇 Forward audio to ElevenLabs
+// 👇 Forward audio to ElevenLabs (legacy - not used with native integration)
 async function forwardToElevenLabs(mediaData) {
   try {
     // This is where you'd implement the ElevenLabs Conversational AI integration
