@@ -1,3 +1,4 @@
+console.log("DOMAIN ENV:", process.env.DOMAIN);
 const express = require('express');
 const router = express.Router();
 
