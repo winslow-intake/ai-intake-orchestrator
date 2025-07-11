@@ -25,15 +25,25 @@ app.get('/', (req, res) => {
 
 // 👇 ElevenLabs conversation initiation webhook
 app.post('/voice', (req, res) => {
-  console.log('🔗 ElevenLabs conversation initiation:', req.body);
+  console.log('🔗 ElevenLabs conversation initiation:', JSON.stringify(req.body, null, 2));
+  console.log('🔗 Headers:', JSON.stringify(req.headers, null, 2));
   
-  // Return conversation initiation data
-  res.json({
-    conversation_initiation_client_data: {
-      dynamic_variables: {},
-      overrides: {}
-    }
-  });
+  try {
+    // Return conversation initiation data
+    const response = {
+      conversation_initiation_client_data: {
+        dynamic_variables: {},
+        overrides: {}
+      }
+    };
+    
+    console.log('📤 Sending response:', JSON.stringify(response, null, 2));
+    res.status(200).json(response);
+    
+  } catch (error) {
+    console.error('❌ Error in /voice endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // 👇 Twilio status callbacks
