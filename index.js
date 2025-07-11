@@ -149,15 +149,16 @@ async function processIntakeData(data) {
 
     const airtableRecord = {
       fields: {
-        'First Name': extractFirstName(data.name),
-        'Last Name': extractLastName(data.name),
-        'Phone': data.phone,
+        'First Name': data['First Name'] || '',
+        'Last Name': data['Last Name'] || '',
+        'Phone': data['Phone'] || '',
+        'Email': data['Email'] || '',
         'Source': 'Phone Call - AI Intake',
         'Lead Status': 'New Lead',
-        'Case Type': mapCaseType(data.accident_type),
-        'Case Description': data.extra_notes || data.accident_type,
-        'Date of Incident': data.accident_date,
-        'Consent to Contact': data.consent_given === 'yes',
+        'Case Type': data['Case Type'] || 'Other Personal Injury',
+        'Case Description': data['Case Description'] || '',
+        'Date of Incident': data['Date of Incident'] || '',
+        'Consent to Contact': data['Consent to Contact'] || 'No',
         'Lead Score': calculateLeadScore(data),
         'Created Date': new Date().toISOString()
       }
@@ -198,10 +199,28 @@ function mapCaseType(accidentType) {
 
 function calculateLeadScore(data) {
   let score = 50;
-  if (data.urgency_flag?.includes('hospital')) score += 30;
-  if (data.consent_given === 'yes') score += 10;
-  if (data.phone?.length > 5) score += 10;
-  if (data.extra_notes?.length > 20) score += 10;
+  
+  // Higher score for recent incidents
+  if (data['Date of Incident']) {
+    const incidentText = data['Date of Incident'].toLowerCase();
+    if (incidentText.includes('today') || incidentText.includes('yesterday')) score += 20;
+    if (incidentText.includes('this week') || incidentText.includes('last week')) score += 15;
+  }
+  
+  // Higher score for serious cases
+  if (data['Case Description']) {
+    const description = data['Case Description'].toLowerCase();
+    if (description.includes('hospital') || description.includes('emergency')) score += 30;
+    if (description.includes('surgery') || description.includes('fracture')) score += 25;
+    if (description.includes('pain') || description.includes('injury')) score += 10;
+  }
+  
+  // Consent bonus
+  if (data['Consent to Contact'] === 'Yes') score += 10;
+  
+  // Contact completeness bonus
+  if (data['Phone'] && data['Email']) score += 15;
+  
   return Math.min(score, 100);
 }
 
