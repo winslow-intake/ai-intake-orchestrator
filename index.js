@@ -12,8 +12,8 @@ const wss = new WebSocketServer({ server });
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' })); // Increase limit for ElevenLabs webhooks
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check
 app.get('/', (req, res) => {
@@ -169,19 +169,40 @@ wss.on('connection', (ws) => {
 
 // 🎯 POST-CALL WEBHOOK - ElevenLabs calls this after the conversation ends
 app.post('/webhook/elevenlabs', async (req, res) => {
-  console.log('📋 Post-call data from ElevenLabs:', JSON.stringify(req.body, null, 2));
+  console.log('📋 Post-call webhook received');
   
   try {
-    // Process and save to Airtable
-    const intakeData = req.body;
+    // Extract only the data collection results (the important stuff)
+    const postCallData = req.body;
+    const dataCollection = postCallData?.data?.analysis?.data_collection_results || {};
     
-    if (intakeData && Object.keys(intakeData).length > 0) {
+    // Convert to our Airtable format
+    const intakeData = {
+      'First Name': dataCollection['First Name']?.value || '',
+      'Last Name': dataCollection['Last Name']?.value || '',
+      'Phone': dataCollection['Phone']?.value || '',
+      'Email': dataCollection['Email']?.value || '',
+      'Case Type': dataCollection['Case Type']?.value || '',
+      'Case Description': dataCollection['Case Description']?.value || '',
+      'Date of Incident': dataCollection['Date of Incident']?.value || '',
+      'Consent to Contact': dataCollection['Consent to Contact']?.value || '',
+      'Conversation ID': postCallData?.data?.conversation_id || '',
+      'Call Duration': postCallData?.data?.metadata?.call_duration_secs || 0,
+      'Transcript Summary': postCallData?.data?.analysis?.transcript_summary || ''
+    };
+    
+    console.log('📊 Extracted intake data:', intakeData);
+    
+    // Only save if we got some actual data
+    if (Object.values(intakeData).some(value => value && value !== '')) {
       await saveToAirtable(intakeData);
       
-      // Trigger n8n workflow if configured
+      // Trigger n8n workflow with clean data
       if (process.env.N8N_WEBHOOK_URL) {
         await triggerN8nWorkflow(intakeData);
       }
+    } else {
+      console.log('⚠️ No meaningful data collected, skipping save');
     }
     
     res.json({ status: 'success', message: 'Data processed successfully' });
