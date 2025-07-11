@@ -62,7 +62,7 @@ wss.on('connection', (ws) => {
         
         // Get signed URL for private agent
         console.log('🔑 Getting signed URL from ElevenLabs...');
-        const signedUrlResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`, {
+        const signedUrlResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`, {
           headers: {
             'xi-api-key': apiKey
           }
