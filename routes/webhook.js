@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 
-// This endpoint receives structured data from Marcus after calls
+// 🔥 Main ElevenLabs Webhook Handler
 router.post('/elevenlabs', async (req, res) => {
   console.log('🎯 Received webhook from ElevenLabs:', req.body);
 
@@ -9,12 +10,10 @@ router.post('/elevenlabs', async (req, res) => {
     const { conversation_id, status, transcript, analysis } = req.body;
 
     if (status === 'completed' && analysis) {
-      // Marcus should return structured JSON in the analysis field
       const intakeData = typeof analysis === 'string' ? JSON.parse(analysis) : analysis;
-      
+
       console.log('📋 Extracted intake data:', intakeData);
 
-      // Process the structured data
       await processIntakeData({
         conversation_id,
         transcript,
@@ -33,11 +32,11 @@ router.post('/elevenlabs', async (req, res) => {
   }
 });
 
+// 🔄 Process + Send to Airtable + Trigger n8n
 async function processIntakeData(data) {
   try {
     console.log('💾 Processing intake data for Airtable...');
 
-    // Map Marcus's output to Airtable fields
     const airtableRecord = {
       fields: {
         'First Name': extractFirstName(data.name),
@@ -54,10 +53,8 @@ async function processIntakeData(data) {
       }
     };
 
-    // TODO: Add Airtable API call here
-    console.log('📊 Ready for Airtable:', airtableRecord);
+    await saveToAirtable(airtableRecord);
 
-    // TODO: Trigger n8n webhook for follow-up automation
     if (process.env.N8N_WEBHOOK_URL) {
       await triggerN8nWorkflow(airtableRecord);
     }
@@ -68,6 +65,26 @@ async function processIntakeData(data) {
   }
 }
 
+// ✅ Airtable Save
+async function saveToAirtable(record) {
+  try {
+    const config = {
+      headers: {
+        Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Leads`;
+
+    const res = await axios.post(url, record, config);
+    console.log('📥 Saved to Airtable:', res.data.id);
+  } catch (error) {
+    console.error('❌ Failed to save to Airtable:', error.response?.data || error.message);
+  }
+}
+
+// 🛠️ Helpers
 function extractFirstName(fullName) {
   if (!fullName) return '';
   return fullName.split(' ')[0] || '';
@@ -81,7 +98,6 @@ function extractLastName(fullName) {
 
 function mapCaseType(accidentType) {
   if (!accidentType) return 'Other';
-  
   const type = accidentType.toLowerCase();
   if (type.includes('car') || type.includes('vehicle')) return 'Vehicle or Pedestrian Accident';
   if (type.includes('slip') || type.includes('fall')) return 'Slip/Fall in Public Place';
@@ -90,13 +106,11 @@ function mapCaseType(accidentType) {
 }
 
 function calculateLeadScore(data) {
-  let score = 50; // Base score
-  
-  if (data.urgency_flag && data.urgency_flag.includes('hospital')) score += 30;
+  let score = 50;
+  if (data.urgency_flag?.includes('hospital')) score += 30;
   if (data.consent_given === 'yes') score += 10;
-  if (data.phone && data.phone.length > 5) score += 10;
-  if (data.extra_notes && data.extra_notes.length > 20) score += 10;
-  
+  if (data.phone?.length > 5) score += 10;
+  if (data.extra_notes?.length > 20) score += 10;
   return Math.min(score, 100);
 }
 
@@ -108,7 +122,7 @@ async function triggerN8nWorkflow(recordData) {
     });
     console.log('✅ Triggered n8n workflow');
   } catch (error) {
-    console.error('❌ Failed to trigger n8n:', error);
+    console.error('❌ Failed to trigger n8n:', error.response?.data || error.message);
   }
 }
 
