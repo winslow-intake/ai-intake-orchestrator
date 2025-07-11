@@ -2,7 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 dotenv.config();
 
