@@ -60,13 +60,24 @@ wss.on('connection', (ws) => {
           return;
         }
         
-        const elevenLabsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${agentId}`;
-        
-        elevenLabsWs = new WebSocket(elevenLabsUrl, {
+        // Get signed URL for private agent
+        console.log('🔑 Getting signed URL from ElevenLabs...');
+        const signedUrlResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`, {
           headers: {
             'xi-api-key': apiKey
           }
         });
+        
+        if (!signedUrlResponse.ok) {
+          console.error('❌ Failed to get signed URL:', signedUrlResponse.statusText);
+          return;
+        }
+        
+        const signedUrlData = await signedUrlResponse.json();
+        const elevenLabsUrl = signedUrlData.signed_url;
+        
+        console.log('🚀 Connecting to ElevenLabs with signed URL...');
+        elevenLabsWs = new WebSocket(elevenLabsUrl);
         
         elevenLabsWs.on('open', () => {
           console.log('✅ Connected to ElevenLabs Conversational AI');
