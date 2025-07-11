@@ -1,8 +1,14 @@
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
 import fetch from 'node-fetch';
+import WebSocket from 'ws';
 
 const app = express();
+const server = createServer(app);
+const wss = new WebSocketServer({ server });
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -17,15 +23,20 @@ app.get('/', (req, res) => {
   });
 });
 
-// 👇 ElevenLabs conversation initiation webhook (if needed)
+// 👇 Twilio webhook - returns TwiML to start WebSocket connection
 app.post('/voice', (req, res) => {
-  console.log('🔗 ElevenLabs conversation initiation');
-  res.json({
-    conversation_initiation_client_data: {
-      dynamic_variables: {},
-      overrides: {}
-    }
-  });
+  console.log('📞 Incoming call from Twilio:', req.body?.From);
+  
+  const twiml = `
+    <Response>
+      <Connect>
+        <Stream url="wss://${req.get('host')}/media" />
+      </Connect>
+    </Response>
+  `;
+  
+  res.type('text/xml');
+  res.send(twiml);
 });
 
 // 👇 ElevenLabs post-call webhook - saves data to Airtable
@@ -56,6 +67,155 @@ app.post('/webhook/elevenlabs', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// 👇 WebSocket connection for Twilio media streams
+wss.on('connection', (ws, req) => {
+  console.log('🔗 WebSocket connected from Twilio');
+  
+  let elevenLabsWs = null;
+  let callSid = null;
+
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message);
+      
+      switch (data.event) {
+        case 'connected':
+          console.log('📞 Twilio stream connected');
+          break;
+          
+        case 'start':
+          console.log('🎬 Stream started for call:', data.start.callSid);
+          callSid = data.start.callSid;
+          
+          // Connect to ElevenLabs Conversational AI
+          await connectToElevenLabs(ws, data.start);
+          break;
+          
+        case 'media':
+          // Forward audio to ElevenLabs
+          if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+            const audioMessage = {
+              type: 'audio',
+              audio_event: {
+                audio_base_64: data.media.payload,
+                sample_rate: 8000,
+                encoding: 'mulaw'
+              }
+            };
+            elevenLabsWs.send(JSON.stringify(audioMessage));
+          }
+          break;
+          
+        case 'stop':
+          console.log('🛑 Stream stopped');
+          if (elevenLabsWs) {
+            elevenLabsWs.close();
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('❌ Error processing WebSocket message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('🔌 Twilio WebSocket disconnected');
+    if (elevenLabsWs) {
+      elevenLabsWs.close();
+    }
+  });
+
+  // Store ElevenLabs connection reference
+  ws.setElevenLabsConnection = (connection) => {
+    elevenLabsWs = connection;
+  };
+});
+
+// 👇 Connect to ElevenLabs Conversational AI
+async function connectToElevenLabs(twilioWs, startData) {
+  try {
+    console.log('🚀 Connecting to ElevenLabs...');
+    
+    const agentId = process.env.ELEVENLABS_AGENT_ID || 'agent_01jzrf596af7vr8vkavc0bgaz2';
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('ELEVENLABS_API_KEY is required');
+    }
+
+    const elevenLabsWsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${agentId}`;
+    
+    const elevenLabsWs = new WebSocket(elevenLabsWsUrl, {
+      headers: {
+        'xi-api-key': apiKey,
+      }
+    });
+
+    elevenLabsWs.on('open', () => {
+      console.log('✅ Connected to ElevenLabs');
+      
+      // Send conversation config
+      const config = {
+        type: 'conversation_initiation_metadata',
+        conversation_initiation_metadata: {
+          conversation_id: `twilio_${startData.callSid}`,
+          user_id: startData.callSid,
+        }
+      };
+      
+      elevenLabsWs.send(JSON.stringify(config));
+    });
+
+    elevenLabsWs.on('message', (data) => {
+      try {
+        const message = JSON.parse(data);
+        
+        switch (message.type) {
+          case 'audio':
+            // Send audio back to Twilio
+            const audioMessage = {
+              event: 'media',
+              streamSid: startData.streamSid,
+              media: {
+                payload: message.audio_event.audio_base_64
+              }
+            };
+            twilioWs.send(JSON.stringify(audioMessage));
+            break;
+            
+          case 'interruption':
+            console.log('⏸️ User interrupted');
+            break;
+            
+          case 'ping':
+            elevenLabsWs.send(JSON.stringify({ type: 'pong' }));
+            break;
+            
+          case 'conversation_ended':
+            console.log('🏁 Conversation ended');
+            break;
+        }
+      } catch (error) {
+        console.error('❌ Error processing ElevenLabs message:', error);
+      }
+    });
+
+    elevenLabsWs.on('error', (error) => {
+      console.error('❌ ElevenLabs WebSocket error:', error);
+    });
+
+    elevenLabsWs.on('close', () => {
+      console.log('🔌 ElevenLabs connection closed');
+    });
+
+    // Store the connection
+    twilioWs.setElevenLabsConnection(elevenLabsWs);
+
+  } catch (error) {
+    console.error('❌ Failed to connect to ElevenLabs:', error);
+  }
+}
 
 // 👇 Process intake data and save to Airtable
 async function processIntakeData(data) {
@@ -157,6 +317,7 @@ async function triggerN8nWorkflow(recordData) {
   }
 }
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 AI Intake Orchestrator running on port ${PORT}`);
+  console.log(`📞 Configure Twilio webhook: https://your-domain.com/voice`);
 });
