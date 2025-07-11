@@ -1,58 +1,34 @@
 import 'dotenv/config';
 import express from 'express';
-import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
 import fetch from 'node-fetch';
 
 const app = express();
-const server = createServer(app);
-const wss = new WebSocketServer({ server });
-
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 👇 Health check endpoint
+// 👇 Health check
 app.get('/', (req, res) => {
   res.json({ 
     status: 'AI Intake Orchestrator Running',
-    timestamp: new Date().toISOString(),
-    websocket_url: `wss://${req.get('host')}/media`
+    timestamp: new Date().toISOString()
   });
 });
 
-// 👇 ElevenLabs conversation initiation webhook
+// 👇 ElevenLabs conversation initiation webhook (if needed)
 app.post('/voice', (req, res) => {
-  console.log('🔗 ElevenLabs conversation initiation:', JSON.stringify(req.body, null, 2));
-  console.log('🔗 Headers:', JSON.stringify(req.headers, null, 2));
-  
-  try {
-    // Return conversation initiation data
-    const response = {
-      conversation_initiation_client_data: {
-        dynamic_variables: {},
-        overrides: {}
-      }
-    };
-    
-    console.log('📤 Sending response:', JSON.stringify(response, null, 2));
-    res.status(200).json(response);
-    
-  } catch (error) {
-    console.error('❌ Error in /voice endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  console.log('🔗 ElevenLabs conversation initiation');
+  res.json({
+    conversation_initiation_client_data: {
+      dynamic_variables: {},
+      overrides: {}
+    }
+  });
 });
 
-// 👇 Twilio status callbacks
-app.post('/status', (req, res) => {
-  console.log('📡 Twilio call status:', req.body);
-  res.sendStatus(200);
-});
-
-// 👇 ElevenLabs webhook handler
+// 👇 ElevenLabs post-call webhook - saves data to Airtable
 app.post('/webhook/elevenlabs', async (req, res) => {
   console.log('🎯 Received webhook from ElevenLabs:', req.body);
 
@@ -80,69 +56,6 @@ app.post('/webhook/elevenlabs', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// 👇 WebSocket connection for media streaming (legacy - not used with native ElevenLabs integration)
-wss.on('connection', (ws, req) => {
-  console.log('🔗 WebSocket connected from:', req.socket.remoteAddress);
-
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message);
-      console.log('📦 Received message type:', data.event);
-
-      // Handle different Twilio stream events
-      switch (data.event) {
-        case 'connected':
-          console.log('📞 Stream connected:', data);
-          break;
-        case 'start':
-          console.log('🎬 Stream started:', data.start);
-          // Here you would typically initialize your ElevenLabs connection
-          break;
-        case 'media':
-          console.log('🎵 Media chunk received, payload size:', data.media.payload.length);
-          // Forward audio to ElevenLabs for processing
-          await forwardToElevenLabs(data.media);
-          break;
-        case 'stop':
-          console.log('🛑 Stream stopped');
-          break;
-      }
-    } catch (error) {
-      console.error('❌ Error processing WebSocket message:', error);
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('🔌 WebSocket disconnected');
-  });
-
-  ws.on('error', (error) => {
-    console.error('❌ WebSocket error:', error);
-  });
-});
-
-// 👇 Forward audio to ElevenLabs (legacy - not used with native integration)
-async function forwardToElevenLabs(mediaData) {
-  try {
-    // This is where you'd implement the ElevenLabs Conversational AI integration
-    // For now, just log that we received audio
-    console.log('🎯 Would forward to ElevenLabs:', {
-      timestamp: mediaData.timestamp,
-      sequenceNumber: mediaData.sequenceNumber
-    });
-
-    // Example of what you'd do:
-    // 1. Convert Twilio's audio format to what ElevenLabs expects
-    // 2. Send to ElevenLabs WebSocket
-    // 3. Receive response from ElevenLabs
-    // 4. Convert back to Twilio format
-    // 5. Send back to Twilio via WebSocket
-
-  } catch (error) {
-    console.error('❌ Error forwarding to ElevenLabs:', error);
-  }
-}
 
 // 👇 Process intake data and save to Airtable
 async function processIntakeData(data) {
@@ -176,27 +89,6 @@ async function processIntakeData(data) {
     console.error('❌ Error in processIntakeData:', error);
     throw error;
   }
-}
-
-// 👇 Helper functions
-function extractFirstName(fullName) {
-  if (!fullName) return '';
-  return fullName.split(' ')[0] || '';
-}
-
-function extractLastName(fullName) {
-  if (!fullName) return '';
-  const parts = fullName.split(' ');
-  return parts.length > 1 ? parts.slice(1).join(' ') : '';
-}
-
-function mapCaseType(accidentType) {
-  if (!accidentType) return 'Other';
-  const type = accidentType.toLowerCase();
-  if (type.includes('car') || type.includes('vehicle')) return 'Vehicle or Pedestrian Accident';
-  if (type.includes('slip') || type.includes('fall')) return 'Slip/Fall in Public Place';
-  if (type.includes('work') || type.includes('job')) return 'Workers Compensation';
-  return 'Other Personal Injury';
 }
 
 function calculateLeadScore(data) {
@@ -265,8 +157,6 @@ async function triggerN8nWorkflow(recordData) {
   }
 }
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`🚀 AI Intake Orchestrator running on port ${PORT}`);
-  console.log(`📞 Webhook URL: http://localhost:${PORT}/voice`);
-  console.log(`🌐 WebSocket URL: ws://localhost:${PORT}/media`);
 });
