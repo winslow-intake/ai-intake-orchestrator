@@ -1,8 +1,8 @@
-import express from 'express';
-import { WebSocketServer } from 'ws';
-import { createServer } from 'http';
-import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+const express = require('express');
+const { WebSocketServer } = require('ws');
+const { createServer } = require('http');
+const dotenv = require('dotenv');
+const fetch = require('node-fetch');
 
 dotenv.config();
 
