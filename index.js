@@ -100,16 +100,7 @@ wss.on('connection', (ws) => {
         
         elevenLabsWs.on('open', () => {
           console.log('✅ Connected to ElevenLabs Conversational AI');
-          
-          // Send conversation initiation message
-          const initMessage = {
-            type: "conversation_initiation_client_data",
-            conversation_config_override: {},
-            custom_llm_extra_body: {}
-          };
-          
-          console.log('📤 Sending initiation message to ElevenLabs');
-          elevenLabsWs.send(JSON.stringify(initMessage));
+          // Don't send initiation message - let ElevenLabs use default agent settings
         });
         
         elevenLabsWs.on('message', (elevenLabsMessage) => {
@@ -122,7 +113,7 @@ wss.on('connection', (ws) => {
             }
             
             if (elevenLabsData.type === 'audio' && elevenLabsData.audio_event) {
-              // Send audio back to Twilio
+              // Convert ElevenLabs audio (PCM) to Twilio format (μ-law)
               const audioData = elevenLabsData.audio_event.audio_base_64;
               
               const twilioMessage = {
@@ -172,11 +163,14 @@ wss.on('connection', (ws) => {
       if (data.event === 'media') {
         // Forward audio from Twilio to ElevenLabs
         if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+          // Twilio sends μ-law encoded audio, ElevenLabs expects base64 PCM
+          // For now, send the raw payload - audio format conversion may be needed
           const audioMessage = {
             user_audio_chunk: data.media.payload
           };
           
           elevenLabsWs.send(JSON.stringify(audioMessage));
+          console.log('🎤 Forwarded audio to ElevenLabs');
         }
       }
       
