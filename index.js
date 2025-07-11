@@ -24,7 +24,7 @@ app.get('/twiml', (req, res) => {
   res.send(`
     <Response>
       <Connect>
-        <Stream url="wss://${process.env.PUBLIC_HOST}/media" />
+        <Stream url="wss://${process.env.DOMAIN}/media" />
       </Connect>
     </Response>
   `);
