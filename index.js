@@ -1,74 +1,54 @@
-import express from 'express';
-import { WebSocketServer } from 'ws';
-import { createServer } from 'http';
-import dotenv from 'dotenv';
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
-dotenv.config();
+require('dotenv').config();
+const express = require('express');
+const { createServer } = require('http');
+const { WebSocketServer } = require('ws');
+const fetch = require('node-fetch');
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: '/media' });
+const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.DOMAIN || 'localhost';
 
-app.use(express.urlencoded({ extended: true }));
-
+// 👇 Twilio hits this route to start the call
 app.post('/twiml', (req, res) => {
-  res.type('text/xml');
-  res.send(`
+  const twiml = `
     <Response>
       <Connect>
-        <Stream url="wss://${HOST}/media" />
+        <Stream url="wss://ai-media-server.onrender.com/media" />
       </Connect>
     </Response>
-  `);
+  `;
+  res.type('text/xml');
+  res.send(twiml);
 });
 
+// 👇 This WebSocket handles media stream (optional if using separate media server)
 wss.on('connection', (ws) => {
   console.log('🔗 WebSocket connected to Twilio media stream');
 
-  let sessionId = null;
+  ws.on('message', async (message) => {
+    console.log('📦 Received media chunk');
 
-  ws.on('message', async (data) => {
-    const msg = JSON.parse(data.toString());
-
-    if (msg.event === 'start') {
-      sessionId = msg.start.callSid;
-      console.log(`📞 Call started: ${sessionId}`);
-    }
-
-    if (msg.event === 'media' && msg.media?.payload) {
-      const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-
-      const response = await fetch(`https://api.elevenlabs.io/v1/speech-to-text`, {
+    try {
+      const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
         method: 'POST',
         headers: {
           'xi-api-key': process.env.ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          audio: audioBuffer.toString('base64'),
-          encoding: 'mulaw',
-          sample_rate: 8000,
-          agent_id: process.env.ELEVENLABS_AGENT_ID,
-        })
+        body: JSON.stringify({ audio: message }),
       });
 
       const result = await response.json();
-      if (result?.text) {
-        console.log(`🗣️ Transcription: ${result.text}`);
-      }
-    }
-
-    if (msg.event === 'stop') {
-      console.log(`⛔ Call ended: ${sessionId}`);
+      console.log('📝 Transcription:', result);
+    } catch (err) {
+      console.error('❌ Error sending to ElevenLabs:', err);
     }
   });
 
   ws.on('close', () => {
-    console.log(`❌ WebSocket disconnected`);
+    console.log('🔌 WebSocket disconnected');
   });
 });
 
