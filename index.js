@@ -11,7 +11,8 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/media' });
 
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.PUBLIC_HOST || 'localhost';
+const HOST = 'ai-intake-orchestrator.onrender.com';
+
 
 app.use(express.urlencoded({ extended: true }));
 
