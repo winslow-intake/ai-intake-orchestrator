@@ -4,12 +4,16 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import twilio from 'twilio';
 
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
+
+// Initialize Twilio client for making API calls
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -42,6 +46,20 @@ wss.on('connection', (ws) => {
   
   let elevenLabsWs = null;
   let streamSid = null;
+  let callSid = null; // Store the call SID for hangup
+  
+  // Function to hang up the call
+  const hangupCall = async () => {
+    if (callSid) {
+      try {
+        console.log(`📞 Hanging up call: ${callSid}`);
+        await twilioClient.calls(callSid).update({ status: 'completed' });
+        console.log('✅ Call hung up successfully');
+      } catch (error) {
+        console.error('❌ Error hanging up call:', error);
+      }
+    }
+  };
   
   ws.on('message', async (message) => {
     try {
@@ -49,7 +67,8 @@ wss.on('connection', (ws) => {
       
       if (data.event === 'start') {
         streamSid = data.start.streamSid;
-        console.log(`🎬 Stream started: ${streamSid}`);
+        callSid = data.start.callSid; // Extract call SID from start event
+        console.log(`🎬 Stream started: ${streamSid}, Call SID: ${callSid}`);
         
         // 🚀 Connect to ElevenLabs using signed URL approach
         const agentId = process.env.ELEVENLABS_AGENT_ID;
@@ -57,6 +76,7 @@ wss.on('connection', (ws) => {
         
         if (!agentId || !apiKey) {
           console.error('❌ Missing ELEVENLABS_AGENT_ID or ELEVENLABS_API_KEY');
+          await hangupCall();
           return;
         }
         
@@ -70,6 +90,7 @@ wss.on('connection', (ws) => {
           
           if (!signedUrlResponse.ok) {
             console.error('❌ Failed to get signed URL:', signedUrlResponse.statusText, await signedUrlResponse.text());
+            await hangupCall();
             return;
           }
           
@@ -112,11 +133,13 @@ wss.on('connection', (ws) => {
               }
               
               if (elevenLabsData.type === 'conversation_end') {
-                console.log('🏁 Conversation ended');
+                console.log('🏁 Conversation ended by ElevenLabs');
                 ws.send(JSON.stringify({
                   event: 'stop',
                   streamSid: streamSid
                 }));
+                // Hang up the call when conversation ends
+                hangupCall();
               }
               
             } catch (error) {
@@ -126,14 +149,19 @@ wss.on('connection', (ws) => {
           
           elevenLabsWs.on('close', (code, reason) => {
             console.log('🔌 ElevenLabs connection closed:', code, reason.toString());
+            // Hang up the call when ElevenLabs connection closes
+            hangupCall();
           });
           
           elevenLabsWs.on('error', (error) => {
             console.error('❌ ElevenLabs WebSocket error:', error);
+            // Hang up the call on ElevenLabs error
+            hangupCall();
           });
           
         } catch (error) {
           console.error('❌ Error setting up ElevenLabs connection:', error);
+          await hangupCall();
         }
       }
       
@@ -151,10 +179,12 @@ wss.on('connection', (ws) => {
         if (elevenLabsWs) {
           elevenLabsWs.close();
         }
+        // Don't hang up here as this is triggered by our own hangup
       }
       
     } catch (error) {
       console.error('❌ Error processing WebSocket message:', error);
+      await hangupCall();
     }
   });
   
@@ -163,6 +193,17 @@ wss.on('connection', (ws) => {
     if (elevenLabsWs) {
       elevenLabsWs.close();
     }
+    // Hang up the call when Twilio WebSocket closes
+    hangupCall();
+  });
+  
+  ws.on('error', (error) => {
+    console.log('❌ Twilio WebSocket error:', error);
+    if (elevenLabsWs) {
+      elevenLabsWs.close();
+    }
+    // Hang up the call on WebSocket error
+    hangupCall();
   });
 });
 
