@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import twilio from 'twilio';
+import outboundRoutes from './routes/outbound.js';
 
 const app = express();
 const server = createServer(app);
@@ -23,6 +24,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.get('/', (req, res) => {
   res.json({ status: 'AI Intake Server Running', timestamp: new Date().toISOString() });
 });
+
+// Outbound route
+app.use('/outbound', outboundRoutes);
 
 // 🎯 TWILIO WEBHOOK - This is what your Twilio phone number should call
 app.post('/voice', (req, res) => {

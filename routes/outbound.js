@@ -36,7 +36,7 @@ router.post('/trigger', async (req, res) => {
     // Initiate outbound call
     const call = await twilioClient.calls.create({
       to: phoneNumber,
-      from: process.env.TWILIO_PHONE_NUMBER,
+      from: process.env.TWILIO_OUTBOUND_PHONE_NUMBER,
       url: `https://${req.get('host')}/outbound/voice?${params}`,
       statusCallback: `https://${req.get('host')}/outbound/status`,
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
