@@ -72,11 +72,11 @@ wss.on('connection', (ws) => {
         console.log(`🎬 Stream started: ${streamSid}, Call SID: ${callSid}`);
         
         // 🚀 Connect to ElevenLabs using signed URL approach
-        const agentId = process.env.ELEVENLABS_AGENT_ID;
+        const agentId = process.env.ELEVENLABS_INBOUND_AGENT_ID;
         const apiKey = process.env.ELEVENLABS_API_KEY;
         
         if (!agentId || !apiKey) {
-          console.error('❌ Missing ELEVENLABS_AGENT_ID or ELEVENLABS_API_KEY');
+          console.error('❌ Missing ELEVENLABS_INBOUND_AGENT_ID or ELEVENLABS_API_KEY');
           await hangupCall();
           return;
         }
