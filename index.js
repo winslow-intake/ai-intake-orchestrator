@@ -28,9 +28,10 @@ app.get('/', (req, res) => {
 app.post('/voice', (req, res) => {
   console.log('📞 Incoming call from Twilio:', req.body);
   
-  // Return TwiML that connects to our WebSocket
+  // Return TwiML that rings first, then connects to our WebSocket
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Pause length="3"/>
   <Connect>
     <Stream url="wss://${req.get('host')}/media" />
   </Connect>
