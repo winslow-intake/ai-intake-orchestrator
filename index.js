@@ -4,12 +4,11 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
-// import { twilioClient } from './services/twilio-client.js';
 import { handleWebSocketConnection } from './services/websocket-handler.js';
-import { handleOutboundWebSocketConnection } from './services/outbound-websocket-handler.js';
+// REMOVED: import { handleOutboundWebSocketConnection } from './services/outbound-websocket-handler.js';
 import outboundRoutes from './routes/outbound.js';
-import customLLMRoutes from './services/custom-llm-handler.js';
-import conversationInitRoutes from './services/conversation-init-webhook.js';
+// REMOVED: import customLLMRoutes from './services/custom-llm-handler.js';
+// REMOVED: import conversationInitRoutes from './services/conversation-init-webhook.js';
 
 const app = express();
 const server = createServer(app);
@@ -26,16 +25,9 @@ app.get('/', (req, res) => {
   res.json({ status: 'AI Intake Server Running', timestamp: new Date().toISOString() });
 });
 
-// Debug: Log all requests to /api/*
-app.use('/api/*', (req, res, next) => {
-  console.log('🔍 API Request:', req.method, req.path, req.body);
-  next();
-});
-
 // Routes
 app.use('/outbound', outboundRoutes);
-app.use('/api', customLLMRoutes);  // Custom LLM endpoints (can remove later)
-app.use('/api', conversationInitRoutes);  // ElevenLabs webhook endpoints
+// REMOVED: Custom LLM and webhook routes - no longer needed
 
 // 🎯 TWILIO WEBHOOK - This is what your Twilio phone number should call
 app.post('/voice', (req, res) => {
@@ -54,25 +46,17 @@ app.post('/voice', (req, res) => {
   res.send(twiml);
 });
 
-// WebSocket connection handling with path routing
+// WebSocket connection handling - ONLY for inbound calls now
 wss.on('connection', (ws, req) => {
-  const path = req.url;
-  console.log('🔌 WebSocket connection on path:', path);
-  
-  if (path === '/media-outbound') {
-    // Handle outbound calls
-    handleOutboundWebSocketConnection(ws);
-  } else {
-    // Default to inbound handler
-    handleWebSocketConnection(ws);
-  }
+  console.log('🔌 WebSocket connection established');
+  // Always use inbound handler - no more path routing needed
+  handleWebSocketConnection(ws);
 });
 
 // Start server
 server.listen(PORT, () => {
   console.log(`🚀 AI Intake Server running on port ${PORT}`);
-  console.log(`📞 Twilio webhook: https://your-app.onrender.com/voice`);
-  console.log(`🤖 Custom LLM endpoint: https://your-app.onrender.com/api/custom-llm/{callSid}`);
-  console.log(`🎯 ElevenLabs webhook: https://your-app.onrender.com/api/conversation-init`);
+  console.log(`📞 Twilio inbound webhook: https://your-app.onrender.com/voice`);
+  console.log(`🎯 Outbound trigger: https://your-app.onrender.com/outbound/trigger`);
   console.log('✅ Ready for voice calls via Twilio → ElevenLabs');
 });
