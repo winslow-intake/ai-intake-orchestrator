@@ -26,6 +26,12 @@ app.get('/', (req, res) => {
   res.json({ status: 'AI Intake Server Running', timestamp: new Date().toISOString() });
 });
 
+// Debug: Log all requests to /api/*
+app.use('/api/*', (req, res, next) => {
+  console.log('🔍 API Request:', req.method, req.path, req.body);
+  next();
+});
+
 // Routes
 app.use('/outbound', outboundRoutes);
 app.use('/api', customLLMRoutes);  // Custom LLM endpoints (can remove later)

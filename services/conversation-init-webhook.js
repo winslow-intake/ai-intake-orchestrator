@@ -21,6 +21,8 @@ export function storeCallContext(callSid, context) {
 // Webhook endpoint that ElevenLabs calls to get conversation data
 router.post('/conversation-init', (req, res) => {
   console.log('🎯 ElevenLabs conversation init webhook called:', req.body);
+  console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+  console.log('📋 Request headers:', req.headers);
   
   // Extract call identifier from ElevenLabs
   const { call_id, agent_id } = req.body;
