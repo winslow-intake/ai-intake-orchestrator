@@ -61,9 +61,9 @@ router.post('/conversation-init', (req, res) => {
   // Return the variables ElevenLabs expects
   res.json({
     variables: {
-      user_name: context.firstName || "valued client",
-      case_type: context.caseType || "your case",
-      incident_date: context.incidentDate || "recently"
+      user_name: context.user_name || "valued client",
+      case_type: context.case_type || "your case",
+      incident_date: context.incident_date || "recently"
     }
   });
 });

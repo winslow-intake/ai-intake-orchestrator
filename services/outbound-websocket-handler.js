@@ -22,9 +22,9 @@ export function handleOutboundWebSocketConnection(ws) {
         // Extract custom parameters from Twilio
         const customParams = data.start.customParameters || {};
         callContext = {
-          user_name: customParams.firstName,
-          case_type: customParams.caseType,
-          incident_date: customParams.incidentDate,
+          user_name: customParams.user_name,
+          case_type: customParams.case_type,
+          incident_date: customParams.incident_date,
           callType: 'outbound'
         };
         
