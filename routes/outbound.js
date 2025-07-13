@@ -1,5 +1,6 @@
 import express from 'express';
 import twilio from 'twilio';
+import { storeCallContext } from '../services/conversation-init-webhook.js';
 
 const router = express.Router();
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -27,11 +28,11 @@ router.post('/trigger', async (req, res) => {
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
     
-    // Create URL with parameters for context
+    // Create URL with parameters for context - using ElevenLabs variable names
     const params = new URLSearchParams({
-      firstName: firstName || '',
-      caseType: caseType || '',
-      incidentDate: whenIncidentOccured || ''
+      user_name: firstName || '',
+      case_type: caseType || '',
+      incident_date: whenIncidentOccured || ''
     }).toString();
     
     // Use ngrok URL for local testing, otherwise use the host
@@ -46,6 +47,13 @@ router.post('/trigger', async (req, res) => {
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       machineDetection: 'DetectMessageEnd', // For voicemail handling
       asyncAmd: true
+    });
+    
+    // Store context for ElevenLabs webhook
+    storeCallContext(call.sid, {
+      user_name: firstName,
+      case_type: caseType,
+      incident_date: whenIncidentOccured
     });
     
     res.json({ 
@@ -65,20 +73,20 @@ router.post('/trigger', async (req, res) => {
 
 // TwiML endpoint for outbound calls
 router.post('/voice', (req, res) => {
-  const { firstName, caseType, incidentDate } = req.query;
+  const { user_name, case_type, incident_date } = req.query;
   
-  console.log('📞 Outbound call connected for:', firstName || 'Unknown');
-  console.log('📋 Case type:', caseType);
-  console.log('📅 Incident date:', incidentDate);
+  console.log('📞 Outbound call connected for:', user_name || 'Unknown');
+  console.log('📋 Case type:', case_type);
+  console.log('📅 Incident date:', incident_date);
   
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Pause length="1"/>
   <Connect>
     <Stream url="wss://${req.get('host')}/media-outbound">
-      <Parameter name="firstName" value="${firstName || ''}" />
-      <Parameter name="caseType" value="${caseType || ''}" />
-      <Parameter name="incidentDate" value="${incidentDate || ''}" />
+      <Parameter name="user_name" value="${user_name || ''}" />
+      <Parameter name="case_type" value="${case_type || ''}" />
+      <Parameter name="incident_date" value="${incident_date || ''}" />
       <Parameter name="callType" value="outbound" />
     </Stream>
   </Connect>
