@@ -47,15 +47,23 @@ export function handleOutboundWebSocketConnection(ws) {
         try {
           console.log('🔑 Getting signed URL for outbound agent...');
           
-          // IMPORTANT: Include the call_id in the signed URL request
-          // This tells ElevenLabs which context to fetch from your webhook
+          // CRITICAL: Pass variables in the request body when getting signed URL
           const signedUrlResponse = await fetch(
             `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`, 
             {
-              method: 'GET',
+              method: 'POST', // Changed to POST to send body
               headers: {
-                'xi-api-key': apiKey
-              }
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                // Pass your custom variables here
+                custom_llm_data: {
+                  user_name: callContext.user_name || "valued client",
+                  case_type: callContext.case_type || "your case",
+                  incident_date: callContext.incident_date || "recently"
+                }
+              })
             }
           );
           
@@ -69,12 +77,8 @@ export function handleOutboundWebSocketConnection(ws) {
           const signedUrlData = await signedUrlResponse.json();
           console.log('✅ Got signed URL for outbound agent');
           
-          // Add the call_id as a query parameter to the WebSocket URL
-          // This helps ElevenLabs identify which call context to fetch
-          const wsUrl = new URL(signedUrlData.signed_url);
-          wsUrl.searchParams.append('call_id', callSid);
-          
-          elevenLabsWs = new WebSocket(wsUrl.toString());
+          // The signed URL now contains your custom variables
+          elevenLabsWs = new WebSocket(signedUrlData.signed_url);
           
           elevenLabsWs.on('open', () => {
             console.log('✅ Connected to ElevenLabs Outbound Agent');
