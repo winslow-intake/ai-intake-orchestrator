@@ -40,6 +40,10 @@ router.post('/trigger', async (req, res) => {
         to_number: phoneNumber, // Changed from 'to' to 'to_number'
         from_number: process.env.TWILIO_OUTBOUND_PHONE_NUMBER, // Changed from 'from' to 'from_number'
         
+        // Enable Twilio's answering machine detection
+        amd: true,
+        amd_behavior_on_machine: "hangup", // Hang up immediately on voicemail detection
+        
         // Pass custom variables through conversation_initiation_client_data
         conversation_initiation_client_data: {
           type: "conversation_initiation_client_data",
