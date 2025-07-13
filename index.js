@@ -7,6 +7,7 @@ import fetch from 'node-fetch';
 // import { twilioClient } from './services/twilio-client.js';
 import { handleWebSocketConnection } from './services/websocket-handler.js';
 import outboundRoutes from './routes/outbound.js';
+import customLLMRoutes from './services/custom-llm-handler.js';  // NEW LINE
 
 const app = express();
 const server = createServer(app);
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 
 // Outbound route
 app.use('/outbound', outboundRoutes);
+app.use('/api', customLLMRoutes);  // NEW LINE - Custom LLM endpoints
 
 // 🎯 TWILIO WEBHOOK - This is what your Twilio phone number should call
 app.post('/voice', (req, res) => {
@@ -43,11 +45,12 @@ app.post('/voice', (req, res) => {
   res.send(twiml);
 });
 
-wss.on('connection', handleWebSocketConnection);
+wss.on('connection', handleWebSocketConnection);  // UNCHANGED - Still using original handler
 
 // Start server
 server.listen(PORT, () => {
   console.log(`🚀 AI Intake Server running on port ${PORT}`);
   console.log(`📞 Twilio webhook: https://your-app.onrender.com/voice`);
+  console.log(`🤖 Custom LLM endpoint: https://your-app.onrender.com/api/custom-llm/{callSid}`);  // NEW LINE
   console.log('✅ Ready for voice calls via Twilio → ElevenLabs');
 });
