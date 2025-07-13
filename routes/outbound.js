@@ -26,8 +26,6 @@ router.post('/trigger', async (req, res) => {
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
     console.log('📋 Context:', { firstName, caseType, whenIncidentOccured });
-    console.log('📱 Phone Number ID:', process.env.ELEVENLABS_PHONE_NUMBER_ID);
-
     
     // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
@@ -50,15 +48,8 @@ router.post('/trigger', async (req, res) => {
             case_type: caseType || "personal injury case",
             incident_date: whenIncidentOccured || "recently",
             case_description: caseDescription || ""
-          },
-          conversation_config_override: {
-            agent: {
-              prompt: {
-                prompt: `You are a compassionate legal intake specialist from Winslow Law Firm calling {{user_name}} about their {{case_type}} that occurred on {{incident_date}}. Be warm, professional, and gather important details about their case.`
-              },
-              first_message: `Hello, is this {{user_name}}? This is Sarah from Winslow Law Firm. I'm calling about the {{case_type}} you submitted regarding an incident on {{incident_date}}. Do you have a few minutes to discuss what happened?`
-            }
           }
+          // Removed conversation_config_override - use agent's default Marcus persona
         }
       })
     });
