@@ -26,6 +26,8 @@ router.post('/trigger', async (req, res) => {
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
     console.log('📋 Context:', { firstName, caseType, whenIncidentOccured });
+    onsole.log('📱 Phone Number ID:', process.env.ELEVENLABS_PHONE_NUMBER_ID);
+
     
     // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
