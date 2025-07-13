@@ -13,7 +13,8 @@ router.post('/trigger', async (req, res) => {
       caseType,           // "Case Type" from Airtable
       caseDescription,    // "Case Description" - what happened
       whenIncidentOccured, // "When Incident Occured"
-      consentToContact    // "Consent to Contact" - should be "true"
+      consentToContact,    // "Consent to Contact" - should be "true"
+      ngrokUrl            // For local testing only
     } = req.body;
     
     // Check consent before calling
@@ -33,12 +34,15 @@ router.post('/trigger', async (req, res) => {
       incidentDate: whenIncidentOccured || ''
     }).toString();
     
+    // Use ngrok URL for local testing, otherwise use the host
+    const baseUrl = ngrokUrl ? `https://${ngrokUrl}` : `https://${req.get('host')}`;
+    
     // Initiate outbound call
     const call = await twilioClient.calls.create({
       to: phoneNumber,
       from: process.env.TWILIO_OUTBOUND_PHONE_NUMBER,
-      url: `https://${req.get('host')}/outbound/voice?${params}`,
-      statusCallback: `https://${req.get('host')}/outbound/status`,
+      url: `${baseUrl}/outbound/voice?${params}`,
+      statusCallback: `${baseUrl}/outbound/status`,
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       machineDetection: 'DetectMessageEnd', // For voicemail handling
       asyncAmd: true
