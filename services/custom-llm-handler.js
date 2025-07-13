@@ -18,6 +18,20 @@ export function storeCallContext(callSid, context) {
   }, 30 * 60 * 1000);
 }
 
+// Test endpoint to manually store context
+router.post('/custom-llm/:callSid/context', (req, res) => {
+  const { callSid } = req.params;
+  const context = req.body;
+  
+  storeCallContext(callSid, context);
+  
+  res.json({
+    success: true,
+    message: `Context stored for call ${callSid}`,
+    context
+  });
+});
+
 // Custom LLM endpoint that ElevenLabs will call
 router.post('/custom-llm/:callSid', (req, res) => {
   const { callSid } = req.params;
