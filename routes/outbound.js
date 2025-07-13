@@ -26,7 +26,7 @@ router.post('/trigger', async (req, res) => {
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
     console.log('📋 Context:', { firstName, caseType, whenIncidentOccured });
-    onsole.log('📱 Phone Number ID:', process.env.ELEVENLABS_PHONE_NUMBER_ID);
+    console.log('📱 Phone Number ID:', process.env.ELEVENLABS_PHONE_NUMBER_ID);
 
     
     // Call ElevenLabs Outbound API directly
