@@ -36,8 +36,9 @@ router.post('/trigger', async (req, res) => {
       },
       body: JSON.stringify({
         agent_id: process.env.ELEVENLABS_OUTBOUND_AGENT_ID,
-        to: phoneNumber,
-        from: process.env.TWILIO_OUTBOUND_PHONE_NUMBER,
+        agent_phone_number_id: process.env.ELEVENLABS_PHONE_NUMBER_ID, // Required - get from ElevenLabs dashboard
+        to_number: phoneNumber, // Changed from 'to' to 'to_number'
+        from_number: process.env.TWILIO_OUTBOUND_PHONE_NUMBER, // Changed from 'from' to 'from_number'
         
         // Pass custom variables through conversation_initiation_client_data
         conversation_initiation_client_data: {
