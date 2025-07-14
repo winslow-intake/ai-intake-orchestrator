@@ -11,7 +11,7 @@ router.post('/trigger', async (req, res) => {
       firstName, 
       caseType,           // "Case Type" from Airtable
       caseDescription,    // "Case Description" - what happened
-      whenIncidentOccured, // "When Incident Occured"
+      whenIncidentOccurred, // "When Incident Occurred"
       consentToContact,    // "Consent to Contact" - should be "true"
       ngrokUrl            // For local testing only
     } = req.body;
@@ -25,7 +25,7 @@ router.post('/trigger', async (req, res) => {
     }
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
-    console.log('📋 Context:', { firstName, caseType, whenIncidentOccured });
+    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred });
     
     // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
@@ -50,7 +50,7 @@ router.post('/trigger', async (req, res) => {
           dynamic_variables: {
             user_name: firstName || "valued client",
             case_type: caseType || "personal injury case",
-            incident_date: whenIncidentOccured || "recently",
+            incident_date: whenIncidentOccurred || "recently",
             case_description: caseDescription || ""
           }
           // Removed conversation_config_override - use agent's default Marcus persona
