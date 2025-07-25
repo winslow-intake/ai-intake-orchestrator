@@ -1,34 +1,38 @@
 import express from 'express';
 import fetch from 'node-fetch';
+
 const router = express.Router();
 
+// Endpoint that n8n will call when new Airtable record appears
 router.post('/trigger', async (req, res) => {
   try {
     const { 
       phoneNumber, 
       firstName, 
-      caseType,             
-      caseDescription,      
-      whenIncidentOccurred, 
-      consentToContact,     
-      lead_score,           
-      record_id,            
+      caseType,             // "Case Type" from Airtable
+      caseDescription,      // "Case Description"
+      whenIncidentOccurred, // "When Incident Occurred"
+      consentToContact,     // "Consent to Contact"
+      lead_score,           // <-- Accept lead_score from n8n
+      record_id,            // <-- Accept record_id from n8n
       appointment_status,   
       scheduled_time,       
       meeting_link,         
-      ngrokUrl              
+      ngrokUrl              // For local testing only
     } = req.body;
-
+    
+    // Check consent before calling
     if (consentToContact !== 'true') {
       return res.status(400).json({ 
         success: false, 
         error: 'No consent to contact' 
       });
     }
-
+    
     console.log('🚀 Triggering outbound call to:', phoneNumber);
-    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score, record_id, appointment_status, scheduled_time, meeting_link });
-
+    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score, record_id });
+    
+    // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
       method: 'POST',
       headers: {
@@ -58,23 +62,23 @@ router.post('/trigger', async (req, res) => {
         }
       })
     });
-
+    
     if (!elevenLabsResponse.ok) {
       const errorText = await elevenLabsResponse.text();
       console.error('❌ ElevenLabs API error:', elevenLabsResponse.status, errorText);
       throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status} ${errorText}`);
     }
-
+    
     const result = await elevenLabsResponse.json();
     console.log('✅ Call initiated successfully:', result);
-
+    
     res.json({ 
       success: true, 
       callId: result.call_id,
       message: `Call initiated to ${phoneNumber}`,
       details: result
     });
-
+    
   } catch (error) {
     console.error('❌ Error triggering outbound call:', error);
     res.status(500).json({ 
@@ -84,4 +88,19 @@ router.post('/trigger', async (req, res) => {
   }
 });
 
-module.exports = router;
+// Status webhook endpoint (ElevenLabs will call this)
+router.post('/status', (req, res) => {
+  console.log('📊 Call status update from ElevenLabs:', req.body);
+  res.sendStatus(200);
+});
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Outbound service ready',
+    timestamp: new Date().toISOString()
+  });
+});
+
+export default router;
