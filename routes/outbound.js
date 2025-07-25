@@ -1,35 +1,34 @@
-import express from 'express';
-import fetch from 'node-fetch';
-
+const express = require('express');
+const fetch = require('node-fetch');
 const router = express.Router();
 
-// Endpoint that n8n will call when new Airtable record appears
 router.post('/trigger', async (req, res) => {
   try {
     const { 
       phoneNumber, 
       firstName, 
-      caseType,             // "Case Type" from Airtable
-      caseDescription,      // "Case Description"
-      whenIncidentOccurred, // "When Incident Occurred"
-      consentToContact,     // "Consent to Contact"
-      lead_score,           // <-- Accept lead_score from n8n
-      record_id,            // <-- Accept record_id from n8n
-      ngrokUrl              // For local testing only
+      caseType,             
+      caseDescription,      
+      whenIncidentOccurred, 
+      consentToContact,     
+      lead_score,           
+      record_id,            
+      appointment_status,   
+      scheduled_time,       
+      meeting_link,         
+      ngrokUrl              
     } = req.body;
-    
-    // Check consent before calling
+
     if (consentToContact !== 'true') {
       return res.status(400).json({ 
         success: false, 
         error: 'No consent to contact' 
       });
     }
-    
+
     console.log('🚀 Triggering outbound call to:', phoneNumber);
-    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score, record_id });
-    
-    // Call ElevenLabs Outbound API directly
+    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score, record_id, appointment_status, scheduled_time, meeting_link });
+
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
       method: 'POST',
       headers: {
@@ -51,28 +50,31 @@ router.post('/trigger', async (req, res) => {
             incident_date: whenIncidentOccurred || "recently",
             case_description: caseDescription || "",
             lead_score: typeof lead_score !== 'undefined' ? lead_score : 0,
-            record_id: record_id || "" // Pass record_id for downstream updates
+            record_id: record_id || "",
+            appointment_status: appointment_status || "",
+            scheduled_time: scheduled_time || "",
+            meeting_link: meeting_link || ""
           }
         }
       })
     });
-    
+
     if (!elevenLabsResponse.ok) {
       const errorText = await elevenLabsResponse.text();
       console.error('❌ ElevenLabs API error:', elevenLabsResponse.status, errorText);
       throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status} ${errorText}`);
     }
-    
+
     const result = await elevenLabsResponse.json();
     console.log('✅ Call initiated successfully:', result);
-    
+
     res.json({ 
       success: true, 
       callId: result.call_id,
       message: `Call initiated to ${phoneNumber}`,
       details: result
     });
-    
+
   } catch (error) {
     console.error('❌ Error triggering outbound call:', error);
     res.status(500).json({ 
@@ -82,19 +84,4 @@ router.post('/trigger', async (req, res) => {
   }
 });
 
-// Status webhook endpoint (ElevenLabs will call this)
-router.post('/status', (req, res) => {
-  console.log('📊 Call status update from ElevenLabs:', req.body);
-  res.sendStatus(200);
-});
-
-// Health check
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'Outbound service ready',
-    timestamp: new Date().toISOString()
-  });
-});
-
-export default router;
+module.exports = router;
