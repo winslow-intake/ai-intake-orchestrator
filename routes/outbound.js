@@ -9,12 +9,13 @@ router.post('/trigger', async (req, res) => {
     const { 
       phoneNumber, 
       firstName, 
-      caseType,           // "Case Type" from Airtable
-      caseDescription,    // "Case Description" - what happened
+      caseType,             // "Case Type" from Airtable
+      caseDescription,      // "Case Description"
       whenIncidentOccurred, // "When Incident Occurred"
-      consentToContact,    // "Consent to Contact" - should be "true"
-      lead_score,          // <-- Accept lead_score from n8n
-      ngrokUrl            // For local testing only
+      consentToContact,     // "Consent to Contact"
+      lead_score,           // <-- Accept lead_score from n8n
+      record_id,            // <-- Accept record_id from n8n
+      ngrokUrl              // For local testing only
     } = req.body;
     
     // Check consent before calling
@@ -26,7 +27,7 @@ router.post('/trigger', async (req, res) => {
     }
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
-    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score });
+    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score, record_id });
     
     // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
@@ -37,13 +38,11 @@ router.post('/trigger', async (req, res) => {
       },
       body: JSON.stringify({
         agent_id: process.env.ELEVENLABS_OUTBOUND_AGENT_ID,
-        agent_phone_number_id: process.env.ELEVENLABS_PHONE_NUMBER_ID, // Required - get from ElevenLabs dashboard
-        to_number: phoneNumber, // Changed from 'to' to 'to_number'
-        from_number: process.env.TWILIO_OUTBOUND_PHONE_NUMBER, // Changed from 'from' to 'from_number'
-        
+        agent_phone_number_id: process.env.ELEVENLABS_PHONE_NUMBER_ID,
+        to_number: phoneNumber,
+        from_number: process.env.TWILIO_OUTBOUND_PHONE_NUMBER,
         amd: true,
-        amd_behavior_on_machine: "hangup", // Hang up immediately on voicemail detection
-
+        amd_behavior_on_machine: "hangup",
         conversation_initiation_client_data: {
           type: "conversation_initiation_client_data",
           dynamic_variables: {
@@ -51,7 +50,8 @@ router.post('/trigger', async (req, res) => {
             case_type: caseType || "personal injury case",
             incident_date: whenIncidentOccurred || "recently",
             case_description: caseDescription || "",
-            lead_score: typeof lead_score !== 'undefined' ? lead_score : 0 // <-- Pass lead_score to agent
+            lead_score: typeof lead_score !== 'undefined' ? lead_score : 0,
+            record_id: record_id || "" // Pass record_id for downstream updates
           }
         }
       })
