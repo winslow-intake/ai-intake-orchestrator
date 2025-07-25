@@ -13,6 +13,7 @@ router.post('/trigger', async (req, res) => {
       caseDescription,    // "Case Description" - what happened
       whenIncidentOccurred, // "When Incident Occurred"
       consentToContact,    // "Consent to Contact" - should be "true"
+      lead_score,          // <-- Accept lead_score from n8n
       ngrokUrl            // For local testing only
     } = req.body;
     
@@ -25,7 +26,7 @@ router.post('/trigger', async (req, res) => {
     }
     
     console.log('🚀 Triggering outbound call to:', phoneNumber);
-    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred });
+    console.log('📋 Context:', { firstName, caseType, whenIncidentOccurred, lead_score });
     
     // Call ElevenLabs Outbound API directly
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
@@ -40,20 +41,18 @@ router.post('/trigger', async (req, res) => {
         to_number: phoneNumber, // Changed from 'to' to 'to_number'
         from_number: process.env.TWILIO_OUTBOUND_PHONE_NUMBER, // Changed from 'from' to 'from_number'
         
-        // Enable Twilio's answering machine detection
         amd: true,
         amd_behavior_on_machine: "hangup", // Hang up immediately on voicemail detection
-        
-        // Pass custom variables through conversation_initiation_client_data
+
         conversation_initiation_client_data: {
           type: "conversation_initiation_client_data",
           dynamic_variables: {
             user_name: firstName || "valued client",
             case_type: caseType || "personal injury case",
             incident_date: whenIncidentOccurred || "recently",
-            case_description: caseDescription || ""
+            case_description: caseDescription || "",
+            lead_score: typeof lead_score !== 'undefined' ? lead_score : 0 // <-- Pass lead_score to agent
           }
-          // Removed conversation_config_override - use agent's default Marcus persona
         }
       })
     });
